@@ -35,7 +35,7 @@ public abstract class PdfJsViewerFacetAbstract extends MultipleValueFacetAbstrac
         this.config = config;
     }
 
-    public PdfJsConfig configFor(final PdfJsViewerAdvisor.InstanceKey instanceKey) {
+    public PdfJsConfig getConfig() {
         return config;
     }
 

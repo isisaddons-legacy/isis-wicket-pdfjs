@@ -20,6 +20,8 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 
+import javax.inject.Inject;
+
 import com.google.common.io.Resources;
 
 import org.apache.commons.io.Charsets;
@@ -55,14 +57,13 @@ import org.apache.isis.core.metamodel.adapter.ObjectAdapter;
 import org.apache.isis.viewer.wicket.model.models.ScalarModel;
 import org.apache.isis.viewer.wicket.ui.components.scalars.ScalarPanelAbstract;
 
+import org.isisaddons.wicket.pdfjs.cpt.applib.Pdf;
 import org.isisaddons.wicket.pdfjs.cpt.applib.PdfJsViewerAdvisor;
 import org.isisaddons.wicket.pdfjs.cpt.applib.PdfJsViewerFacet;
+import org.isisaddons.wicket.pdfjs.cpt.applib.Util;
 
 import de.agilecoders.wicket.core.markup.html.bootstrap.common.NotificationPanel;
 
-/**
- *
- */
 class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener {
 
     private static final long serialVersionUID = 1L;
@@ -205,9 +206,12 @@ class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener 
 
         final ObjectAdapter adapter = scalarModel.getObject();
         if (adapter != null) {
-            final PdfJsViewerFacet pdfJsViewerFacet = scalarModel.getFacet(PdfJsViewerFacet.class);
+
+            final PdfJsConfig initialConfig = determineInitialConfig(adapter);
+
             final PdfJsViewerAdvisor.InstanceKey instanceKey = buildKey();
-            final PdfJsConfig config = pdfJsViewerFacet != null ? pdfJsViewerFacet.configFor(instanceKey) : new PdfJsConfig();
+            final PdfJsConfig config = configFor(instanceKey, initialConfig);
+
             config.withDocumentUrl(urlFor(IResourceListener.INTERFACE, null));
             PdfJsPanel pdfJsPanel = new PdfJsPanel(ID_SCALAR_VALUE, config);
 
@@ -241,6 +245,62 @@ class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener 
         }
 
         return containerIfRegular;
+    }
+
+    private PdfJsConfig determineInitialConfig(final ObjectAdapter adapter) {
+        final PdfJsConfig initialConfig;
+
+        final PdfJsViewerFacet pdfJsViewerFacet = scalarModel.getFacet(PdfJsViewerFacet.class);
+        if(pdfJsViewerFacet == null) {
+
+            // if there is no facet, then MUST be a Pdf
+            Pdf pdf = (Pdf) adapter.getObject();
+            Integer initialPageNum = pdf.getInitialPageNum();
+            Scale initialScale = pdf.getInitialScale();
+            Integer initialHeight = pdf.getInitialHeight();
+
+            initialConfig = Util.createPdfJsConfig(initialPageNum, initialScale, initialHeight);
+        } else {
+            initialConfig = pdfJsViewerFacet.getConfig();
+        }
+        return initialConfig;
+    }
+
+    @Inject
+    List<PdfJsViewerAdvisor> getAdvisors() {
+        return getServicesInjector().lookupServices(PdfJsViewerAdvisor.class);
+    }
+
+    @Inject
+    UserService getUserService() {
+        return getServicesInjector().lookupService(UserService.class);
+    }
+
+    public PdfJsConfig configFor(final PdfJsViewerAdvisor.InstanceKey instanceKey, final PdfJsConfig config) {
+
+        final List<PdfJsViewerAdvisor> advisors = getAdvisors();
+        if(advisors != null) {
+            for (PdfJsViewerAdvisor advisor : advisors) {
+                final PdfJsViewerAdvisor.Advice advice = advisor.advise(instanceKey);
+                if(advice != null) {
+                    final Integer pageNum = advice.getPageNum();
+                    if(pageNum != null) {
+                        config.withInitialPage(pageNum);
+                    }
+                    final Scale scale = advice.getScale();
+                    if(scale != null) {
+                        config.withInitialScale(scale);
+                    }
+                    final Integer height = advice.getHeight();
+                    if(height != null) {
+                        config.withInitialHeight(height);
+                    }
+                    break;
+                }
+            }
+        }
+
+        return config;
     }
 
     @Override
@@ -316,12 +376,19 @@ class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener 
     }
 
     private Blob getBlob() {
-        Blob pdfBlob = null;
         final ObjectAdapter adapter = getModel().getObject();
         if (adapter != null) {
-            pdfBlob = (Blob) adapter.getObject();
-        }
-        return pdfBlob;
+            Object object = adapter.getObject();
+            if(object instanceof Blob) {
+                return (Blob) object;
+            }
+            if(object instanceof Pdf) {
+                Pdf pdf = (Pdf) object;
+                return pdf.getBlob();
+            }
+            return null;
+        } else
+        return null;
     }
 
 }
