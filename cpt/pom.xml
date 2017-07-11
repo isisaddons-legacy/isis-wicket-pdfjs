@@ -26,7 +26,7 @@ language governing permissions and limitations under the License.
 
     <groupId>org.isisaddons.wicket.pdfjs</groupId>
     <artifactId>isis-wicket-pdfjs-cpt</artifactId>
-    <version>1.15.0-SNAPSHOT</version>
+    <version>1.14.0.20170711-2210</version>
 
     <packaging>jar</packaging>
 
