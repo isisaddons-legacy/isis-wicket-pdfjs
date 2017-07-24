@@ -94,12 +94,24 @@ class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener 
     }
 
     @Override
-    protected void onBeforeRender() {
-        super.onBeforeRender();
+    protected void onInitialize() {
+        super.onInitialize();
 
-        // so we have a callback URL
-
-
+        // added here rather than in the constructor so that we have a callback URL
+        //
+        // previously these behaviours were added in onBeforeRender(), however this was the cause (I suspect) of errors
+        //
+        // org.apache.wicket.behavior.InvalidBehaviorIdException
+        // Cannot find behavior with id '2' on component 'org.isisaddons.wicket.pdfjs.cpt.ui.PdfJsViewerPanel:
+        // theme:entityPageContainer:entity:rows:1:rowContents:2:col:tabGroups:1:1:rowContents:1:col:fieldSets:1:
+        // memberGroup:properties:1:property' in page '[Page class =
+        // org.apache.isis.viewer.wicket.ui.pages.entity.EntityPage, id = 43, render count = 0]'. Perhaps the behavior
+        // did not properly implement getStatelessHint() and returned 'true' to indicate that it is stateless instead
+        // of returning 'false' to indicate that it is stateful.
+        // org.apache.wicket.Behaviors#getBehaviorById(Behaviors.java:316)
+        //
+        // in discussing with martin-g, recommendation was to use onInitialize instead.
+        //
         updatePageNum = new AbstractDefaultAjaxBehavior()
         {
             @Override
@@ -172,7 +184,9 @@ class PdfJsViewerPanel extends ScalarPanelAbstract implements IResourceListener 
         };
 
         add(updatePageNum, updateScale, updateHeight);
+
     }
+
 
     private void updateAdvisors(final Updater updater) {
         PdfJsViewerAdvisor.InstanceKey instanceKey = buildKey();
